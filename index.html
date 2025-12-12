@@ -25,7 +25,6 @@
         }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
-        /* カードデザイン (スマホ優先) */
         .card {
             background: var(--card-bg);
             border-radius: 12px;
@@ -36,24 +35,21 @@
             justify-content: space-between;
             align-items: center;
             border-left: 5px solid transparent;
-            transition: all 0.3s ease; /* アニメーション */
+            transition: all 0.3s ease;
         }
-        .card[data-rank="1"] { border-left-color: #f1c40f; background: #fffdf0; } /* 1位 */
-        .card[data-rank="2"] { border-left-color: #95a5a6; } /* 2位 */
-        .card[data-rank="3"] { border-left-color: #d35400; } /* 3位 */
+        .card[data-rank="1"] { border-left-color: #f1c40f; background: #fffdf0; }
+        .card[data-rank="2"] { border-left-color: #95a5a6; }
+        .card[data-rank="3"] { border-left-color: #d35400; }
 
         .player-info { flex: 1; }
         .rank { font-size: 0.9rem; color: #888; margin-right: 8px; font-weight: bold; }
         .name { font-size: 1.1rem; font-weight: bold; display: block; }
         .team { font-size: 0.8rem; color: #666; }
         
-        .score-area { text-align: right; }
-        .total-score { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
-        .mato-detail { font-size: 0.8rem; color: #888; font-family: monospace; letter-spacing: 2px; }
+        .score-area { text-align: right; min-width: 100px; }
+        .total-score { font-size: 1.8rem; font-weight: bold; color: var(--primary); line-height: 1.2; }
+        .sub-score { font-size: 0.8rem; color: #888; font-family: monospace; margin-top: 4px; }
         
-        .atari { color: var(--accent); }
-        .hazure { color: #ccc; }
-
         /* 読み込み中 */
         .loading { text-align: center; padding: 20px; color: #666; }
         .error-msg { color: red; text-align: center; background: #ffebee; padding: 10px; border-radius: 8px; display: none; }
@@ -76,28 +72,19 @@
 
 <script>
     // =========================================================
-    // 設定エリア (ここだけ書き換えてください)
+    // 設定エリア
     // =========================================================
     const SUPABASE_URL = 'https://aetenreumweohzjqqcpf.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable__0UiwcqGL8b6OwX828Lh0A_eteYgUoi';
 
-    // =========================================================
-    // 初期化 (変数名を sbClient に変更して衝突回避)
-    // =========================================================
     let sbClient;
     const errorArea = document.getElementById('error-area');
 
     try {
         sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log("Supabase初期化成功");
     } catch (e) {
-        console.error("初期化エラー:", e);
-        showError("システムエラー: 設定を確認してください");
+        showError("システム設定エラー");
     }
-
-    // =========================================================
-    // メイン処理
-    // =========================================================
 
     // データ取得＆表示
     async function fetchAndRender() {
@@ -107,13 +94,13 @@
             const { data, error } = await sbClient
                 .from('participants')
                 .select('*')
-                .order('score', { ascending: false }) // スコア高い順
-                .order('id', { ascending: true });    // 同点なら登録順
+                .order('score', { ascending: false })
+                .order('id', { ascending: true });
 
             if (error) throw error;
             renderList(data);
         } catch (e) {
-            console.error('Data Fetch Error:', e);
+            console.error('Fetch Error:', e);
             showError("データの取得に失敗しました");
         }
     }
@@ -122,16 +109,17 @@
     function renderList(data) {
         const container = document.getElementById('ranking-list');
         if (!data || data.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:#888;">現在、参加者データがありません</p>';
+            container.innerHTML = '<p style="text-align:center; color:#888;">データがありません</p>';
             return;
         }
 
         let html = '';
         data.forEach((p, index) => {
             const rank = index + 1;
-            const mato1 = formatMato(p.round1 || '');
-            const mato2 = formatMato(p.round2 || '');
             
+            // 数値を整形して表示 (例: 1 + 3 + 2)
+            const details = `${p.round1} + ${p.round2} + ${p.round3}`;
+
             html += `
             <div class="card" data-rank="${rank}">
                 <div class="player-info">
@@ -140,53 +128,31 @@
                     <span class="team">${p.team}</span>
                 </div>
                 <div class="score-area">
-                    <div class="total-score">${p.score}中</div>
-                    <div class="mato-detail">${mato1} | ${mato2}</div>
+                    <div class="total-score">${p.score}<span style="font-size:1rem">中</span></div>
+                    <div class="sub-score">${details}</div>
                 </div>
             </div>`;
         });
         container.innerHTML = html;
     }
 
-    // 的中マーク装飾
-    function formatMato(str) {
-        return str.replace(/[○oO0]/g, '<span class="atari">●</span>')
-                  .replace(/[×xX]/g, '<span class="hazure">×</span>');
-    }
-
-    // エラー表示用ヘルパー
     function showError(msg) {
         errorArea.innerText = msg;
         errorArea.style.display = 'block';
         document.querySelector('.loading').style.display = 'none';
     }
 
-    // =========================================================
-    // 実行 & リアルタイム監視
-    // =========================================================
-    
-    // 1. まず一回データを取る
+    // 初回実行
     fetchAndRender();
 
-    // 2. リアルタイム更新をセットアップ
+    // リアルタイム更新
     if (sbClient) {
-        console.log("リアルタイム監視を開始します...");
         sbClient.channel('custom-all-channel')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'participants' },
-                (payload) => {
-                    console.log('変更を検知しました!', payload);
-                    fetchAndRender(); // 変更があったら画面を書き直す
-                }
-            )
-            .subscribe((status) => {
-                if (status === 'SUBSCRIBED') {
-                    console.log('接続完了: リアルタイム更新の準備OK');
-                }
-            });
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, () => {
+                fetchAndRender();
+            })
+            .subscribe();
     }
-
 </script>
 </body>
 </html>
