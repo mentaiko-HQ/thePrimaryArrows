@@ -145,81 +145,92 @@
     </div>
 
     <script>
-      // ▼▼▼ ここを書き換えてください ▼▼▼
+    // -----------------------------------------------------------
+    // 1. 設定と初期化
+    // -----------------------------------------------------------
+
       const SUPABASE_URL = 'https://aetenreumweohzjqqcpf.supabase.co';
       const SUPABASE_ANON_KEY = 'sb_publishable__0UiwcqGL8b6OwX828Lh0A_eteYgUoi';
-      // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
 
       const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      // ログイン処理
-      async function signIn() {
+      // -----------------------------------------------------------
+    // 2. 必要な関数たち
+    // -----------------------------------------------------------
+
+    // ログイン処理
+    async function signIn() {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+        const errorEl = document.getElementById('login-error');
+        
+        errorEl.innerText = "ログイン処理中...";
+
+        // Supabaseを使ってログイン
+        const { data, error } = await supabase.auth.signInWithPassword({ 
+            email: email, 
+            password: password 
         });
-
+        
         if (error) {
-          document.getElementById('login-error').innerText =
-            'ログイン失敗: ' + error.message;
+            console.error('Login Error:', error); // エラー詳細をコンソールに出す
+            errorEl.innerText = "ログイン失敗: " + error.message;
         } else {
-          document.getElementById('login-overlay').style.display = 'none';
-          fetchData(); // データ読み込み開始
+            // 成功したら画面を切り替え
+            document.getElementById('login-overlay').style.display = 'none';
+            fetchData(); // データを読みに行く
         }
-      }
+    }
 
-      // ログアウト処理
-      async function signOut() {
+    // ログアウト処理
+    async function signOut() {
         await supabase.auth.signOut();
         location.reload();
-      }
+    }
 
-      // データ取得
-      async function fetchData() {
+    // データ取得
+    async function fetchData() {
         const { data, error } = await supabase
-          .from('participants')
-          .select('*')
-          .order('id');
-        if (error) return alert('データ取得エラー');
+            .from('participants')
+            .select('*')
+            .order('id');
+            
+        if (error) {
+            console.error('Fetch Error:', error);
+            return alert('データ取得エラー: ' + error.message);
+        }
         renderTable(data);
-      }
+    }
 
-      // テーブル描画
-      function renderTable(data) {
+    // テーブル描画
+    function renderTable(data) {
         const tbody = document.getElementById('admin-tbody');
         let html = '';
-        data.forEach((p) => {
-          html += `
+        if (!data) return;
+
+        data.forEach(p => {
+            html += `
             <tr>
                 <td>${p.id}</td>
-                <td>${p.name}<br><small style="color:#888">${
-            p.team
-          }</small></td>
-                <td><input type="text" class="input-mato" id="r1-${
-                  p.id
-                }" value="${p.round1 || ''}" placeholder="----"></td>
-                <td><input type="text" class="input-mato" id="r2-${
-                  p.id
-                }" value="${p.round2 || ''}" placeholder="----"></td>
+                <td>${p.name}<br><small style="color:#888">${p.team}</small></td>
+                <td><input type="text" class="input-mato" id="r1-${p.id}" value="${p.round1 || ''}" placeholder="----"></td>
+                <td><input type="text" class="input-mato" id="r2-${p.id}" value="${p.round2 || ''}" placeholder="----"></td>
                 <td id="score-${p.id}" style="font-weight:bold;">${p.score}</td>
                 <td>
-                    <button class="btn-save" onclick="updateScore(${
-                      p.id
-                    })">更新</button>
+                    <button class="btn-save" onclick="updateScore(${p.id})">更新</button>
                     <span id="msg-${p.id}" class="status-msg"></span>
                 </td>
             </tr>`;
         });
         tbody.innerHTML = html;
-      }
+    }
 
-      // スコア更新処理
-      async function updateScore(id) {
+    // スコア更新処理
+    async function updateScore(id) {
         const r1 = document.getElementById(`r1-${id}`).value;
         const r2 = document.getElementById(`r2-${id}`).value;
-
+        
         // 的中数を自動計算（○の数を数える）
         const countAtari = (str) => (str.match(/[○oO0]/g) || []).length;
         const newScore = countAtari(r1) + countAtari(r2);
@@ -227,35 +238,43 @@
         // UI上のスコアを仮更新
         document.getElementById(`score-${id}`).innerText = newScore;
         const msgEl = document.getElementById(`msg-${id}`);
-        msgEl.innerText = '送信中...';
+        msgEl.innerText = "送信中...";
 
         // Supabaseへ保存
         const { error } = await supabase
-          .from('participants')
-          .update({ round1: r1, round2: r2, score: newScore })
-          .eq('id', id);
+            .from('participants')
+            .update({ round1: r1, round2: r2, score: newScore })
+            .eq('id', id);
 
         if (error) {
-          msgEl.innerText = '❌ エラー';
-          msgEl.style.color = 'red';
-          console.error(error);
+            msgEl.innerText = "❌ エラー";
+            msgEl.style.color = "red";
+            console.error('Update Error:', error);
         } else {
-          msgEl.innerText = '✅ 保存完了';
-          msgEl.style.color = 'green';
-          setTimeout(() => {
-            msgEl.innerText = '';
-          }, 2000);
+            msgEl.innerText = "✅ 保存完了";
+            msgEl.style.color = "green";
+            setTimeout(() => { msgEl.innerText = ""; }, 2000);
         }
-      }
+    }
 
-      // ログイン状態チェック
-      supabase.auth.getSession().then(({ data: { session } }) => {
+    // -----------------------------------------------------------
+    // 3. 画面が開いた直後の処理
+    // -----------------------------------------------------------
+    
+    // すでにログイン済みかチェックする
+    supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) {
-          document.getElementById('login-overlay').style.display = 'none';
-          fetchData();
+            // ログイン済みならログイン画面を消してデータを表示
+            document.getElementById('login-overlay').style.display = 'none';
+            fetchData();
+        } else {
+            // 未ログインなら何もしない（ログイン画面が出たままになる）
+            console.log("未ログイン状態です");
         }
-      });
-    </script>
+    });
+
+</script>
   </body>
 </html>
+
 
