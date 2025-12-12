@@ -1,163 +1,96 @@
 <!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>運営管理 | スコア入力</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-      :root {
-        --primary: #2c3e50;
-        --bg: #f4f7f6;
-      }
-      body {
-        font-family: sans-serif;
-        background: var(--bg);
-        padding: 20px;
-      }
-      .container {
-        max-width: 900px;
-        margin: 0 auto;
-        background: white;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-      }
+        :root { --primary: #2c3e50; --bg: #f4f7f6; }
+        body { font-family: sans-serif; background: var(--bg); padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        
+        /* ログインフォーム */
+        #login-overlay {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(44, 62, 80, 0.95); display: flex; justify-content: center; align-items: center; z-index: 999;
+        }
+        .login-box { background: white; padding: 30px; border-radius: 8px; width: 300px; text-align: center; }
+        input { width: 100%; padding: 10px; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; }
+        button { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; width: 100%; }
+        button:hover { opacity: 0.9; }
 
-      /* ログインフォーム */
-      #login-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(44, 62, 80, 0.95);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 999;
-      }
-      .login-box {
-        background: white;
-        padding: 30px;
-        border-radius: 8px;
-        width: 300px;
-        text-align: center;
-      }
-      input {
-        width: 100%;
-        padding: 10px;
-        margin-bottom: 10px;
-        box-sizing: border-box;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-      }
-      button {
-        background: var(--primary);
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 4px;
-        cursor: pointer;
-        width: 100%;
-      }
-      button:hover {
-        opacity: 0.9;
-      }
-
-      /* テーブル */
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 20px;
-      }
-      th,
-      td {
-        padding: 12px;
-        border-bottom: 1px solid #eee;
-        text-align: left;
-      }
-      th {
-        background: var(--primary);
-        color: white;
-      }
-
-      /* 入力フィールド */
-      .input-mato {
-        width: 80px;
-        font-family: monospace;
-        letter-spacing: 2px;
-        text-align: center;
-      }
-      .btn-save {
-        background: #27ae60;
-        width: auto;
-        font-size: 0.8rem;
-      }
-      .status-msg {
-        font-size: 0.8rem;
-        margin-left: 10px;
-        color: #888;
-      }
+        /* テーブル */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
+        th { background: var(--primary); color: white; }
+        
+        /* 入力フィールド */
+        .input-mato { width: 80px; font-family: monospace; letter-spacing: 2px; text-align: center; }
+        .btn-save { background: #27ae60; width: auto; font-size: 0.8rem; }
+        .status-msg { font-size: 0.8rem; margin-left: 10px; color: #888; }
+        .error-log { color: red; margin-top: 10px; font-size: 0.8rem; text-align: left;}
     </style>
-  </head>
-  <body>
-    <div id="login-overlay">
-      <div class="login-box">
+</head>
+<body>
+
+<div id="login-overlay">
+    <div class="login-box">
         <h2>管理者ログイン</h2>
-        <input type="email" id="email" placeholder="メールアドレス" />
-        <input type="password" id="password" placeholder="パスワード" />
+        <input type="email" id="email" placeholder="メールアドレス">
+        <input type="password" id="password" placeholder="パスワード">
         <button onclick="signIn()">ログイン</button>
-        <p
-          id="login-error"
-          style="color: red; font-size: 0.8rem; margin-top: 10px"
-        ></p>
-      </div>
+        <div id="login-error" class="error-log"></div>
     </div>
+</div>
 
-    <div class="container">
-      <div
-        style="
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        "
-      >
+<div class="container">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
         <h2>📝 スコア管理</h2>
-        <button onclick="signOut()" style="width: auto; background: #7f8c8d">
-          ログアウト
-        </button>
-      </div>
-
-      <table>
+        <button onclick="signOut()" style="width:auto; background:#7f8c8d;">ログアウト</button>
+    </div>
+    
+    <table>
         <thead>
-          <tr>
-            <th>No.</th>
-            <th>選手名</th>
-            <th>1回目 (例:○○×○)</th>
-            <th>2回目</th>
-            <th>的中数</th>
-            <th>操作</th>
-          </tr>
+            <tr>
+                <th>No.</th>
+                <th>選手名</th>
+                <th>1回目 (例:○○×○)</th>
+                <th>2回目</th>
+                <th>的中数</th>
+                <th>操作</th>
+            </tr>
         </thead>
         <tbody id="admin-tbody"></tbody>
-      </table>
-    </div>
+    </table>
+</div>
 
-    <script>
-    // -----------------------------------------------------------
-    // 1. 設定と初期化
-    // -----------------------------------------------------------
+<script>
+    // =========================================================
+    // 設定エリア (ここだけ書き換えてください)
+    // =========================================================
+    
+    const SUPABASE_URL = 'https://aetenreumweohzjqqcpf.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable__0UiwcqGL8b6OwX828Lh0A_eteYgUoi';
 
-      const SUPABASE_URL = 'https://aetenreumweohzjqqcpf.supabase.co';
-      const SUPABASE_ANON_KEY = 'sb_publishable__0UiwcqGL8b6OwX828Lh0A_eteYgUoi';
+    // =========================================================
+    // 初期化 (エラー対策のため変数名を sbClient に変更しました)
+    // =========================================================
+    
+    let sbClient; // グローバル変数として宣言
 
+    try {
+        // ここでSupabaseクライアントを作成
+        sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log("Supabase初期化成功");
+    } catch (e) {
+        console.error("Supabase初期化エラー:", e);
+        alert("Supabaseの初期化に失敗しました。URLとKEYを確認してください。");
+    }
 
-      const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-      // -----------------------------------------------------------
-    // 2. 必要な関数たち
-    // -----------------------------------------------------------
+    // =========================================================
+    // 関数定義
+    // =========================================================
 
     // ログイン処理
     async function signIn() {
@@ -165,40 +98,44 @@
         const password = document.getElementById('password').value;
         const errorEl = document.getElementById('login-error');
         
-        errorEl.innerText = "ログイン処理中...";
+        errorEl.innerText = "通信中...";
 
-        // Supabaseを使ってログイン
-        const { data, error } = await supabase.auth.signInWithPassword({ 
+        if (!sbClient) {
+            errorEl.innerText = "システムエラー: Supabaseが起動していません";
+            return;
+        }
+
+        const { data, error } = await sbClient.auth.signInWithPassword({ 
             email: email, 
             password: password 
         });
         
         if (error) {
-            console.error('Login Error:', error); // エラー詳細をコンソールに出す
-            errorEl.innerText = "ログイン失敗: " + error.message;
+            console.error('Login Error:', error);
+            errorEl.innerText = error.message;
         } else {
-            // 成功したら画面を切り替え
             document.getElementById('login-overlay').style.display = 'none';
-            fetchData(); // データを読みに行く
+            fetchData(); 
         }
     }
 
-    // ログアウト処理
+    // ログアウト
     async function signOut() {
-        await supabase.auth.signOut();
+        await sbClient.auth.signOut();
         location.reload();
     }
 
     // データ取得
     async function fetchData() {
-        const { data, error } = await supabase
+        const { data, error } = await sbClient
             .from('participants')
             .select('*')
             .order('id');
             
         if (error) {
             console.error('Fetch Error:', error);
-            return alert('データ取得エラー: ' + error.message);
+            alert('データ取得エラー: ' + error.message);
+            return;
         }
         renderTable(data);
     }
@@ -226,22 +163,19 @@
         tbody.innerHTML = html;
     }
 
-    // スコア更新処理
+    // スコア更新
     async function updateScore(id) {
         const r1 = document.getElementById(`r1-${id}`).value;
         const r2 = document.getElementById(`r2-${id}`).value;
         
-        // 的中数を自動計算（○の数を数える）
         const countAtari = (str) => (str.match(/[○oO0]/g) || []).length;
         const newScore = countAtari(r1) + countAtari(r2);
 
-        // UI上のスコアを仮更新
         document.getElementById(`score-${id}`).innerText = newScore;
         const msgEl = document.getElementById(`msg-${id}`);
         msgEl.innerText = "送信中...";
 
-        // Supabaseへ保存
-        const { error } = await supabase
+        const { error } = await sbClient
             .from('participants')
             .update({ round1: r1, round2: r2, score: newScore })
             .eq('id', id);
@@ -249,32 +183,27 @@
         if (error) {
             msgEl.innerText = "❌ エラー";
             msgEl.style.color = "red";
-            console.error('Update Error:', error);
+            console.error(error);
         } else {
-            msgEl.innerText = "✅ 保存完了";
+            msgEl.innerText = "✅ 完了";
             msgEl.style.color = "green";
             setTimeout(() => { msgEl.innerText = ""; }, 2000);
         }
     }
 
-    // -----------------------------------------------------------
-    // 3. 画面が開いた直後の処理
-    // -----------------------------------------------------------
+    // =========================================================
+    // 画面読み込み時の処理 (一番最後に実行)
+    // =========================================================
     
-    // すでにログイン済みかチェックする
-    supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-            // ログイン済みならログイン画面を消してデータを表示
-            document.getElementById('login-overlay').style.display = 'none';
-            fetchData();
-        } else {
-            // 未ログインなら何もしない（ログイン画面が出たままになる）
-            console.log("未ログイン状態です");
-        }
-    });
-
+    // ログイン状態チェック
+    if (sbClient) {
+        sbClient.auth.getSession().then(({ data: { session } }) => {
+            if (session) {
+                document.getElementById('login-overlay').style.display = 'none';
+                fetchData();
+            }
+        });
+    }
 </script>
-  </body>
+</body>
 </html>
-
-
