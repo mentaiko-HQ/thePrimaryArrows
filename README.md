@@ -1,0 +1,2 @@
+# thePrimaryArrows
+supabaseとvercelとgithubで弓道大会運営システム構築
