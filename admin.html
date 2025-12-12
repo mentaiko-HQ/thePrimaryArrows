@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>運営管理 | スコア入力</title>
+    <script src="config.js"></script> 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #2c3e50; --accent: #e74c3c; --bg: #f4f7f6; --active-tab: #3498db; }
@@ -143,8 +144,8 @@
     // =========================================================
     // 設定エリア
     // =========================================================
-    const SUPABASE_URL = 'https://aetenreumweohzjqqcpf.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable__0UiwcqGL8b6OwX828Lh0A_eteYgUoi';
+    const SUPABASE_URL = APP_CONFIG.URL;
+    const SUPABASE_ANON_KEY = APP_CONFIG.KEY;
 
     let sbClient;
     let allParticipants = []; 
@@ -361,3 +362,4 @@
 </script>
 </body>
 </html>
+
