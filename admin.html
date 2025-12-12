@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>運営管理 | スコア入力</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+      :root {
+        --primary: #2c3e50;
+        --bg: #f4f7f6;
+      }
+      body {
+        font-family: sans-serif;
+        background: var(--bg);
+        padding: 20px;
+      }
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      /* ログインフォーム */
+      #login-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(44, 62, 80, 0.95);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 999;
+      }
+      .login-box {
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        width: 300px;
+        text-align: center;
+      }
+      input {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 10px;
+        box-sizing: border-box;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      button {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        width: 100%;
+      }
+      button:hover {
+        opacity: 0.9;
+      }
+
+      /* テーブル */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+      th,
+      td {
+        padding: 12px;
+        border-bottom: 1px solid #eee;
+        text-align: left;
+      }
+      th {
+        background: var(--primary);
+        color: white;
+      }
+
+      /* 入力フィールド */
+      .input-mato {
+        width: 80px;
+        font-family: monospace;
+        letter-spacing: 2px;
+        text-align: center;
+      }
+      .btn-save {
+        background: #27ae60;
+        width: auto;
+        font-size: 0.8rem;
+      }
+      .status-msg {
+        font-size: 0.8rem;
+        margin-left: 10px;
+        color: #888;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="login-overlay">
+      <div class="login-box">
+        <h2>管理者ログイン</h2>
+        <input type="email" id="email" placeholder="メールアドレス" />
+        <input type="password" id="password" placeholder="パスワード" />
+        <button onclick="signIn()">ログイン</button>
+        <p
+          id="login-error"
+          style="color: red; font-size: 0.8rem; margin-top: 10px"
+        ></p>
+      </div>
+    </div>
+
+    <div class="container">
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        "
+      >
+        <h2>📝 スコア管理</h2>
+        <button onclick="signOut()" style="width: auto; background: #7f8c8d">
+          ログアウト
+        </button>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>No.</th>
+            <th>選手名</th>
+            <th>1回目 (例:○○×○)</th>
+            <th>2回目</th>
+            <th>的中数</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="admin-tbody"></tbody>
+      </table>
+    </div>
+
+    <script>
+      // ▼▼▼ ここを書き換えてください ▼▼▼
+      const SUPABASE_URL = 'https://aetenreumweohzjqqcpf.supabase.co';
+      const SUPABASE_ANON_KEY =
+        'sb_publishable__0UiwcqGL8b6OwX828Lh0A_eteYgUoi';
+      // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+      const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      // ログイン処理
+      async function signIn() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          document.getElementById('login-error').innerText =
+            'ログイン失敗: ' + error.message;
+        } else {
+          document.getElementById('login-overlay').style.display = 'none';
+          fetchData(); // データ読み込み開始
+        }
+      }
+
+      // ログアウト処理
+      async function signOut() {
+        await supabase.auth.signOut();
+        location.reload();
+      }
+
+      // データ取得
+      async function fetchData() {
+        const { data, error } = await supabase
+          .from('participants')
+          .select('*')
+          .order('id');
+        if (error) return alert('データ取得エラー');
+        renderTable(data);
+      }
+
+      // テーブル描画
+      function renderTable(data) {
+        const tbody = document.getElementById('admin-tbody');
+        let html = '';
+        data.forEach((p) => {
+          html += `
+            <tr>
+                <td>${p.id}</td>
+                <td>${p.name}<br><small style="color:#888">${
+            p.team
+          }</small></td>
+                <td><input type="text" class="input-mato" id="r1-${
+                  p.id
+                }" value="${p.round1 || ''}" placeholder="----"></td>
+                <td><input type="text" class="input-mato" id="r2-${
+                  p.id
+                }" value="${p.round2 || ''}" placeholder="----"></td>
+                <td id="score-${p.id}" style="font-weight:bold;">${p.score}</td>
+                <td>
+                    <button class="btn-save" onclick="updateScore(${
+                      p.id
+                    })">更新</button>
+                    <span id="msg-${p.id}" class="status-msg"></span>
+                </td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+      }
+
+      // スコア更新処理
+      async function updateScore(id) {
+        const r1 = document.getElementById(`r1-${id}`).value;
+        const r2 = document.getElementById(`r2-${id}`).value;
+
+        // 的中数を自動計算（○の数を数える）
+        const countAtari = (str) => (str.match(/[○oO0]/g) || []).length;
+        const newScore = countAtari(r1) + countAtari(r2);
+
+        // UI上のスコアを仮更新
+        document.getElementById(`score-${id}`).innerText = newScore;
+        const msgEl = document.getElementById(`msg-${id}`);
+        msgEl.innerText = '送信中...';
+
+        // Supabaseへ保存
+        const { error } = await supabase
+          .from('participants')
+          .update({ round1: r1, round2: r2, score: newScore })
+          .eq('id', id);
+
+        if (error) {
+          msgEl.innerText = '❌ エラー';
+          msgEl.style.color = 'red';
+          console.error(error);
+        } else {
+          msgEl.innerText = '✅ 保存完了';
+          msgEl.style.color = 'green';
+          setTimeout(() => {
+            msgEl.innerText = '';
+          }, 2000);
+        }
+      }
+
+      // ログイン状態チェック
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          document.getElementById('login-overlay').style.display = 'none';
+          fetchData();
+        }
+      });
+    </script>
+  </body>
+</html>
