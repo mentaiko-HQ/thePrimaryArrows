@@ -2,159 +2,202 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>弓道大会 リアルタイム速報</title>
-    <link rel="icon" href="data:,">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>スコア速報</title>
     <script src="config.js"></script> 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root {
-            --primary: #2c3e50;
-            --accent: #e74c3c;
-            --bg: #f8f9fa;
+        :root { 
+            --primary: #2c3e50; 
+            --accent: #e74c3c; 
+            --bg: #f4f7f6; 
             --card-bg: #ffffff;
+            --text-main: #333;
+            --text-sub: #7f8c8d;
         }
-        body { font-family: "Helvetica Neue", Arial, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 800px; margin: 0 auto; }
-        
-        header { text-align: center; margin-bottom: 2rem; }
-        h1 { margin: 0; color: var(--primary); font-size: 1.5rem; }
-        .live-badge { 
-            background: var(--accent); color: white; padding: 2px 8px; 
-            border-radius: 4px; font-size: 0.7rem; vertical-align: middle; 
-            animation: blink 2s infinite;
-        }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Yu Gothic", sans-serif; 
+            background: var(--bg); 
+            padding: 10px; 
+            margin: 0; 
+            color: var(--text-main);
+            overflow-x: hidden;
+            padding-bottom: 60px;
+        }
+        
+        .container { max-width: 600px; margin: 0 auto; }
+        
+        .header-area { text-align: center; margin-bottom: 20px; padding: 10px 0; }
+        .app-title { margin: 0; font-size: 1.5rem; font-weight: 800; color: var(--primary); }
+        .last-update { font-size: 0.8rem; color: #888; margin-top: 5px; }
+
+        .search-area { margin-bottom: 20px; }
+        .search-input { width: 100%; padding: 12px 16px; font-size: 1rem; border: none; border-radius: 12px; outline: none; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+
+        .card-list { display: flex; flex-direction: column; gap: 16px; }
+
+        /* =========================================
+           ★ 5件ごとの区切り線 (閲覧側も共通)
+           ========================================= */
+        .card:nth-of-type(5n) {
+            margin-bottom: 50px;
+            position: relative;
+        }
+        .card:nth-of-type(5n)::after {
+            content: "Break";
+            color: #aaa;
+            font-size: 0.7rem;
+            text-align: center;
+            line-height: 1.5;
+            display: block;
+            position: absolute;
+            bottom: -30px;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            border-bottom: 2px dashed #ccc; 
+        }
+        .card:last-child { margin-bottom: 0; }
+        .card:last-child::after { display: none; }
+
+        /* カードデザイン (閲覧専用) */
         .card {
             background: var(--card-bg);
             border-radius: 12px;
             padding: 16px;
-            margin-bottom: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-left: 5px solid transparent;
-            transition: all 0.3s ease;
         }
-        .card[data-rank="1"] { border-left-color: #f1c40f; background: #fffdf0; }
-        .card[data-rank="2"] { border-left-color: #95a5a6; }
-        .card[data-rank="3"] { border-left-color: #d35400; }
 
-        .player-info { flex: 1; }
-        .rank { font-size: 0.9rem; color: #888; margin-right: 8px; font-weight: bold; }
-        .name { font-size: 1.1rem; font-weight: bold; display: block; }
-        .team { font-size: 0.8rem; color: #666; }
+        .participant-info { display: flex; align-items: center; gap: 12px; }
+        .p-rank { 
+            font-size: 1.2rem; font-weight: bold; color: #bbb; width: 30px; text-align: center; font-style: italic; 
+        }
+        /* 上位3位の色変え */
+        .card:nth-child(1) .p-rank { color: #f1c40f; text-shadow: 1px 1px 0 rgba(0,0,0,0.1); }
+        .card:nth-child(2) .p-rank { color: #95a5a6; }
+        .card:nth-child(3) .p-rank { color: #d35400; }
+
+        .p-name { font-size: 1.1rem; font-weight: bold; color: var(--primary); display: block; }
+        .p-team { font-size: 0.8rem; color: var(--text-sub); display: block; margin-top: 2px; }
         
-        .score-area { text-align: right; min-width: 100px; }
-        .total-score { font-size: 1.8rem; font-weight: bold; color: var(--primary); line-height: 1.2; }
-        .sub-score { font-size: 0.8rem; color: #888; font-family: monospace; margin-top: 4px; }
+        .score-area { text-align: right; }
+        .score-val { font-size: 1.8rem; font-weight: 800; color: var(--accent); line-height: 1; }
+        .score-label { font-size: 0.7rem; color: #999; display: block; margin-top: 2px; }
+        .detail-score { font-size: 0.75rem; color: #aaa; margin-top: 4px; font-family: monospace; }
         
-        /* 読み込み中 */
-        .loading { text-align: center; padding: 20px; color: #666; }
-        .error-msg { color: red; text-align: center; background: #ffebee; padding: 10px; border-radius: 8px; display: none; }
+        /* リロードボタン */
+        .fab-reload {
+            position: fixed; bottom: 20px; right: 20px;
+            background: var(--primary); color: white;
+            width: 56px; height: 56px; border-radius: 50%;
+            border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            font-size: 1.5rem; cursor: pointer;
+            display: flex; justify-content: center; align-items: center;
+            z-index: 100;
+        }
+        .fab-reload:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <header>
-        <h1>🏹 大会速報 <span class="live-badge">LIVE</span></h1>
-        <p style="font-size:0.8rem; color:#666;">リアルタイムで自動更新されます</p>
-    </header>
-
-    <div id="error-area" class="error-msg"></div>
-
-    <div id="ranking-list">
-        <div class="loading">データを読み込んでいます...</div>
+    <div class="header-area">
+        <h1 class="app-title">🏆 スコア速報</h1>
+        <div id="last-update" class="last-update">読み込み中...</div>
     </div>
+
+    <div class="search-area">
+        <input type="search" id="search-box" class="search-input" placeholder="🔍 名前・所属で検索..." oninput="filterData()">
+    </div>
+    
+    <div id="card-list" class="card-list"></div>
+    <p id="count-display" style="text-align:center; font-size:0.8rem; color:#aaa; margin-top:20px;"></p>
 </div>
 
+<button class="fab-reload" onclick="fetchData()">↻</button>
+
 <script>
-    // =========================================================
-    // 設定エリア
-    // =========================================================
     const SUPABASE_URL = APP_CONFIG.URL;
     const SUPABASE_ANON_KEY = APP_CONFIG.KEY;
-
     let sbClient;
-    const errorArea = document.getElementById('error-area');
+    let allParticipants = []; 
 
     try {
         sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    } catch (e) {
-        showError("システム設定エラー");
-    }
+        fetchData(); // 初回読み込み
+    } catch (e) { console.error("Supabase Init Error:", e); }
 
-    // データ取得＆表示
-    async function fetchAndRender() {
-        if (!sbClient) return;
-
+    async function fetchData() {
+        const updateEl = document.getElementById('last-update');
+        updateEl.innerText = "更新中...";
+        
         try {
+            // スコアが高い順（降順）で取得
             const { data, error } = await sbClient
                 .from('participants')
                 .select('*')
-                .order('score', { ascending: false })
-                .order('id', { ascending: true });
+                .order('score', { ascending: false }) 
+                .order('id', { ascending: true }); // 同点ならID順
 
             if (error) throw error;
-            renderList(data);
-        } catch (e) {
-            console.error('Fetch Error:', e);
-            showError("データの取得に失敗しました");
+            
+            allParticipants = data;
+            renderCards(allParticipants);
+            
+            const now = new Date();
+            updateEl.innerText = `最終更新: ${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+            
+        } catch (error) {
+            alert('データ取得エラー: ' + error.message);
         }
     }
 
-    // リスト描画
-    function renderList(data) {
-        const container = document.getElementById('ranking-list');
+    function filterData() {
+        const query = document.getElementById('search-box').value.toLowerCase();
+        const filtered = allParticipants.filter(p => 
+            (p.name && p.name.toLowerCase().includes(query)) || 
+            (p.team && p.team.toLowerCase().includes(query))
+        );
+        renderCards(filtered);
+    }
+
+    function renderCards(data) {
+        const container = document.getElementById('card-list');
+        document.getElementById('count-display').innerText = `表示中: ${data.length}名`;
+        
         if (!data || data.length === 0) {
-            container.innerHTML = '<p style="text-align:center; color:#888;">データがありません</p>';
+            container.innerHTML = '<div style="text-align:center; color:#999; padding:40px;">データがありません</div>';
             return;
         }
 
         let html = '';
         data.forEach((p, index) => {
-            const rank = index + 1;
-            
-            // 数値を整形して表示 (例: 1 + 3 + 2)
-            const details = `${p.round1} + ${p.round2} + ${p.round3}`;
-
             html += `
-            <div class="card" data-rank="${rank}">
-                <div class="player-info">
-                    <span class="rank">${rank}位</span>
-                    <span class="name">${p.name}</span>
-                    <span class="team">${p.team}</span>
+            <div class="card">
+                <div class="participant-info">
+                    <span class="p-rank">${index + 1}</span>
+                    <div>
+                        <span class="p-name">${p.name}</span>
+                        <span class="p-team">${p.team} (No.${p.id})</span>
+                    </div>
                 </div>
                 <div class="score-area">
-                    <div class="total-score">${p.score}<span style="font-size:1rem">中</span></div>
-                    <div class="sub-score">${details}</div>
+                    <span class="score-label">TOTAL SCORE</span>
+                    <span class="score-val">${p.score}</span>
+                    <div class="detail-score">
+                        1回:${p.round1} / 2回:${p.round2} / 3回:${p.round3}
+                    </div>
                 </div>
             </div>`;
         });
         container.innerHTML = html;
     }
-
-    function showError(msg) {
-        errorArea.innerText = msg;
-        errorArea.style.display = 'block';
-        document.querySelector('.loading').style.display = 'none';
-    }
-
-    // 初回実行
-    fetchAndRender();
-
-    // リアルタイム更新
-    if (sbClient) {
-        sbClient.channel('custom-all-channel')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, () => {
-                fetchAndRender();
-            })
-            .subscribe();
-    }
 </script>
 </body>
 </html>
-
