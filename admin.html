@@ -2,180 +2,306 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>運営管理 | スコア入力</title>
     <script src="config.js"></script> 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root { --primary: #2c3e50; --accent: #e74c3c; --bg: #f4f7f6; --active-tab: #3498db; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Yu Gothic", sans-serif; background: var(--bg); padding: 10px; margin: 0; }
+        /* =========================================
+           ベース設定 & リセット
+           ========================================= */
+        :root { 
+            --primary: #2c3e50; 
+            --accent: #e74c3c; 
+            --bg: #f4f7f6; 
+            --active-tab: #3498db; 
+            --card-bg: #ffffff;
+            --text-main: #333;
+            --text-sub: #7f8c8d;
+            --gap-md: 12px;
+        }
+
+        /* 最重要：横スクロール防止のためのボックスサイズ計算変更 */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Yu Gothic", sans-serif; 
+            background: var(--bg); 
+            padding: 10px; 
+            margin: 0; 
+            color: var(--text-main);
+            /* 横スクロール強制排除 */
+            overflow-x: hidden;
+            padding-bottom: 40px; /* 下部の余白 */
+        }
         
-        .container { max-width: 100%; margin: 0 auto; background: white; padding: 0; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow: hidden;}
+        .container { 
+            max-width: 600px; /* カード表示ならこのくらいの幅がスマホ〜タブレットで最適 */
+            margin: 0 auto; 
+        }
         
-        /* ログイン周り */
+        /* =========================================
+           ログインモーダル
+           ========================================= */
         #login-overlay {
             position: fixed; top:0; left:0; width:100%; height:100%;
             background: rgba(44, 62, 80, 0.95); display: flex; justify-content: center; align-items: center; z-index: 999;
         }
-        .login-box { background: white; padding: 30px; border-radius: 8px; width: 90%; max-width: 350px; text-align: center; }
-        input[type="email"], input[type="password"] { width: 100%; padding: 12px; margin-bottom: 15px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; }
+        .login-box { background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        input[type="email"], input[type="password"] { width: 100%; padding: 14px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; background: #fafafa; }
         
-        /* ヘッダーエリア */
-        .header-area { padding: 15px; display: flex; justify-content: space-between; align-items: center; background: #fff; }
-        .btn-logout { background: #7f8c8d; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; }
+        /* =========================================
+           ヘッダー & ナビゲーション
+           ========================================= */
+        .header-area { 
+            display: flex; justify-content: space-between; align-items: center; 
+            margin-bottom: 15px; padding: 0 5px;
+        }
+        .app-title { margin: 0; font-size: 1.2rem; font-weight: 800; color: var(--primary); }
+        .btn-logout { background: #95a5a6; color: white; border: none; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; }
 
-        /* ★タブナビゲーション */
-        .tab-nav { display: flex; background: #eee; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        /* タブナビゲーション */
+        .tab-nav { 
+            display: flex; 
+            background: #e0e0e0; 
+            border-radius: 10px; 
+            padding: 4px;
+            margin-bottom: 15px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
         .tab-btn {
             flex: 1;
             border: none;
-            background: #eee;
-            padding: 12px 5px;
-            font-size: 0.9rem;
+            background: transparent;
+            padding: 10px 4px;
+            font-size: 0.85rem;
             font-weight: bold;
-            color: #7f8c8d;
+            color: var(--text-sub);
             cursor: pointer;
-            white-space: nowrap;
-            border-bottom: 4px solid transparent;
+            border-radius: 8px;
             transition: all 0.2s;
+            line-height: 1.2;
         }
+        .tab-btn small { font-size: 0.7rem; opacity: 0.8; }
         .tab-btn.active {
             background: white;
-            color: var(--primary);
-            border-bottom-color: var(--active-tab);
+            color: var(--active-tab);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
         /* 検索ボックス */
-        .search-area { padding: 10px; border-bottom: 1px solid #eee; background: white; }
-        .search-input { width: 100%; padding: 10px; font-size: 1rem; border: 2px solid #ddd; border-radius: 25px; outline: none; box-sizing: border-box; }
-        .search-input:focus { border-color: var(--active-tab); }
-
-        /* テーブル設定 */
-        .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; max-height: 65vh; overflow-y: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 100%; }
-        th, td { padding: 12px 8px; border-bottom: 1px solid #eee; text-align: center; vertical-align: middle; }
-        th { background: var(--primary); color: white; font-size: 0.85rem; white-space: nowrap; position: sticky; top: 0; z-index: 5; }
-        td { font-size: 0.95rem; }
-        
-        .col-name { text-align: left; min-width: 110px; max-width: 150px; }
-        .col-input { min-width: 180px; } /* 入力エリアの幅確保 */
-        .col-action { width: 70px; }
-
-        /* 名前・所属 */
-        .p-name { display: block; font-weight: bold; color: #333; line-height: 1.2; }
-        .p-team { display: block; font-size: 0.75rem; color: #888; margin-top: 2px; }
-
-        /* スコア選択ボタン */
-        .score-selector { display: flex; gap: 6px; justify-content: center; width: fit-content; margin: 0 auto; }
-        .score-btn { 
-            width: 36px; height: 36px; /* ボタンを大きく押しやすく */
-            border-radius: 6px; background: #f0f0f0; border: none;
-            color: #333; font-size: 1.1rem; font-weight: bold;
-            display: flex; align-items: center; justify-content: center; 
-            cursor: pointer;
-            box-shadow: 0 2px 0 rgba(0,0,0,0.1);
+        .search-area { margin-bottom: 20px; }
+        .search-input { 
+            width: 100%; padding: 12px 16px; font-size: 1rem; 
+            border: none; border-radius: 12px; outline: none; 
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: box-shadow 0.2s;
         }
-        .score-btn.active { background: var(--active-tab); color: white; box-shadow: none; transform: translateY(2px); }
+        .search-input:focus { box-shadow: 0 4px 12px rgba(52, 152, 219, 0.2); }
 
-        /* 集計表示用 */
-        .result-view { font-family: monospace; font-size: 0.9rem; color: #666; }
-        .result-total { font-size: 1.4rem; font-weight: bold; color: var(--accent); margin-left: 10px; }
+        /* =========================================
+           カードコンポーネント (メイン表示)
+           ========================================= */
+        .card-list { display: flex; flex-direction: column; gap: 16px; }
 
-        /* 保存ボタン */
-        .btn-save { background: #27ae60; border: none; color: white; padding: 8px 0; font-size: 0.8rem; width: 100%; border-radius: 4px; font-weight: bold; cursor: pointer; }
-        .status-msg { font-size: 0.7rem; color: #888; display: block; margin-top: 2px; min-height: 1em; }
-        .error-log { color: red; margin-top: 10px; font-size: 0.8rem; }
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+            border: 1px solid rgba(0,0,0,0.02);
+        }
 
-        /* ★タブ切り替え制御 (CSSで表示非表示を切り替える) */
-        /* デフォルトは全部非表示にしておき、親クラスに応じて表示する */
-        .content-r1, .content-r2, .content-r3, .content-total { display: none; }
+        /* カードヘッダー: 名前とID */
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .participant-info { display: flex; align-items: center; gap: 10px; }
+        .p-id { 
+            background: var(--primary); color: white; 
+            padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; 
+        }
+        .p-name { font-size: 1.1rem; font-weight: bold; color: var(--primary); display: block; }
+        .p-team { font-size: 0.8rem; color: var(--text-sub); display: block; margin-top: 2px; }
         
-        /* bodyに class="tab-mode-r1" がついている時は .content-r1 を表示 */
-        .tab-mode-r1 .content-r1 { display: block; }
-        .tab-mode-r2 .content-r2 { display: block; }
-        .tab-mode-r3 .content-r3 { display: block; }
+        .current-score-badge {
+            text-align: right;
+        }
+        .badge-label { font-size: 0.65rem; color: #999; display: block; }
+        .badge-val { font-size: 1.2rem; font-weight: 800; color: var(--accent); }
+
+        /* =========================================
+           コンテンツエリア & グリッドシステム
+           ========================================= */
+        
+        /* デフォルトは非表示 */
+        .content-r1, .content-r2, .content-r3, .content-total { display: none; }
+
+        /* Bodyのクラスに応じて Grid として表示 */
+        /* 1回目: 1カラム (縦積み) */
+        .tab-mode-r1 .content-r1 {
+            display: grid;
+            grid-template-columns: 1fr; /* 横いっぱい */
+            gap: 10px;
+        }
+
+        /* 2回目・3回目: 2カラム (2列) */
+        .tab-mode-r2 .content-r2,
+        .tab-mode-r3 .content-r3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* 50%ずつ */
+            gap: 10px;
+        }
+
+        /* 集計: ブロック表示 */
         .tab-mode-total .content-total { display: block; }
+
+
+        /* =========================================
+           スコア入力ボタン
+           ========================================= */
+        .score-btn { 
+            width: 100%; /* 親グリッドに合わせて広がる */
+            padding: 12px 0;
+            border-radius: 8px; 
+            background: #f8f9fa; 
+            border: 1px solid #eee;
+            color: var(--text-main); 
+            font-size: 1rem; 
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        
+        /* アクティブ時のスタイル */
+        .score-btn.active { 
+            background: var(--active-tab); 
+            color: white; 
+            border-color: var(--active-tab);
+            box-shadow: 0 4px 6px rgba(52, 152, 219, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        /* クリック時のへこみ */
+        .score-btn:active { transform: translateY(1px); box-shadow: none; }
+
+        /* =========================================
+           集計表示 & 保存エリア
+           ========================================= */
+        .result-detail {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            text-align: center;
+            font-size: 1rem;
+            color: #555;
+            margin-bottom: 10px;
+        }
+        .result-highlight { font-weight: bold; color: var(--accent); font-size: 1.4rem; }
+
+        .card-actions {
+            margin-top: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        
+        .btn-save { 
+            flex: 1;
+            background: #27ae60; 
+            border: none; 
+            color: white; 
+            padding: 14px; 
+            font-size: 1rem; 
+            border-radius: 8px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            box-shadow: 0 4px 0 #219150; /* 立体的なボタン */
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .btn-save:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        .status-msg { font-size: 0.8rem; color: #888; white-space: nowrap; min-width: 40px; text-align: right; }
+        .error-log { color: red; margin-top: 10px; font-size: 0.8rem; }
 
     </style>
 </head>
 <body class="tab-mode-r1"> <div id="login-overlay">
     <div class="login-box">
-        <h2>管理者ログイン</h2>
+        <h2 style="color:var(--primary);">管理者ログイン</h2>
         <input type="email" id="email" placeholder="メールアドレス">
         <input type="password" id="password" placeholder="パスワード">
-        <button class="btn-save" style="padding:12px; font-size:1rem;" onclick="signIn()">ログイン</button>
+        <button class="btn-save" style="width:100%;" onclick="signIn()">ログイン</button>
         <div id="login-error" class="error-log"></div>
     </div>
 </div>
 
 <div class="container">
     <div class="header-area">
-        <h2 style="margin:0; font-size:1.1rem;">📝 スコア入力</h2>
+        <h1 class="app-title">📝 スコア入力</h1>
         <button class="btn-logout" onclick="signOut()">ログアウト</button>
     </div>
 
     <div class="tab-nav">
-        <button class="tab-btn active" onclick="switchTab('r1', this)">1回目<br><small>(0-2)</small></button>
-        <button class="tab-btn" onclick="switchTab('r2', this)">2回目<br><small>(0-4)</small></button>
-        <button class="tab-btn" onclick="switchTab('r3', this)">3回目<br><small>(0-4)</small></button>
-        <button class="tab-btn" onclick="switchTab('total', this)">集計<br><small>成績確認</small></button>
+        <button class="tab-btn active" onclick="switchTab('r1', this)">1回目<br><small>(横一列)</small></button>
+        <button class="tab-btn" onclick="switchTab('r2', this)">2回目<br><small>(2列)</small></button>
+        <button class="tab-btn" onclick="switchTab('r3', this)">3回目<br><small>(2列)</small></button>
+        <button class="tab-btn" onclick="switchTab('total', this)">集計<br><small>確認</small></button>
     </div>
 
     <div class="search-area">
-        <input type="search" id="search-box" class="search-input" placeholder="🔍 選手名で検索..." oninput="filterData()">
+        <input type="search" id="search-box" class="search-input" placeholder="🔍 名前・所属で検索..." oninput="filterData()">
     </div>
     
-    <div class="table-wrapper">
-        <table>
-            <thead>
-                <tr>
-                    <th style="width:40px;">No.</th>
-                    <th class="col-name">選手名</th>
-                    <th class="col-input" id="dynamic-header">1回目成績</th> <th class="col-action">更新</th>
-                </tr>
-            </thead>
-            <tbody id="admin-tbody"></tbody>
-        </table>
-    </div>
-    <p id="count-display" style="text-align:right; font-size:0.8rem; color:#888; padding:0 10px;"></p>
+    <div id="card-list" class="card-list">
+        </div>
+    
+    <p id="count-display" style="text-align:center; font-size:0.8rem; color:#aaa; margin-top:20px;"></p>
 </div>
 
 <script>
     // =========================================================
-    // 設定エリア
+    // 設定 & 初期化
     // =========================================================
     const SUPABASE_URL = APP_CONFIG.URL;
     const SUPABASE_ANON_KEY = APP_CONFIG.KEY;
 
     let sbClient;
     let allParticipants = []; 
-    let currentTab = 'r1'; // 現在のタブを記憶
+    let currentTab = 'r1';
 
     try {
         sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    } catch (e) { alert("Supabase初期化エラー"); }
+    } catch (e) { 
+        console.error("Supabase Init Error:", e);
+        alert("Supabase初期化エラー: config.jsを確認してください"); 
+    }
 
     // =========================================================
-    // タブ切り替えロジック (UI/UXの肝)
+    // UI制御ロジック
     // =========================================================
     function switchTab(mode, btn) {
         currentTab = mode;
 
-        // 1. ボディのクラスを書き換えて、CSSで表示エリアを一括切り替え
+        // 1. bodyのクラス変更 (CSS Gridのレイアウト切り替えトリガー)
         document.body.className = `tab-mode-${mode}`;
 
-        // 2. タブボタンの見た目を更新
+        // 2. タブボタンのアクティブ表示
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-
-        // 3. テーブルヘッダーの文字を変更
-        const headerText = {
-            'r1': '1回目成績 (0-2)',
-            'r2': '2回目成績 (0-4)',
-            'r3': '3回目成績 (0-4)',
-            'total': '成績詳細'
-        };
-        document.getElementById('dynamic-header').innerText = headerText[mode];
     }
 
     // =========================================================
@@ -188,12 +314,14 @@
         const errorEl = document.getElementById('login-error');
         errorEl.innerText = "通信中...";
 
-        const { error } = await sbClient.auth.signInWithPassword({ email, password });
-        if (error) {
-            errorEl.innerText = error.message;
-        } else {
+        try {
+            const { error } = await sbClient.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            
             document.getElementById('login-overlay').style.display = 'none';
             fetchData(); 
+        } catch (error) {
+            errorEl.innerText = error.message;
         }
     }
 
@@ -203,12 +331,15 @@
     }
 
     async function fetchData() {
-        // ID順で全データ取得
-        const { data, error } = await sbClient.from('participants').select('*').order('id');
-        if (error) return alert('データ取得エラー: ' + error.message);
-        
-        allParticipants = data;
-        renderTable(allParticipants);
+        try {
+            const { data, error } = await sbClient.from('participants').select('*').order('id');
+            if (error) throw error;
+            
+            allParticipants = data;
+            renderCards(allParticipants);
+        } catch (error) {
+            alert('データ取得エラー: ' + error.message);
+        }
     }
 
     function filterData() {
@@ -218,126 +349,161 @@
             (p.team && p.team.toLowerCase().includes(query)) ||
             (p.id.toString().includes(query))
         );
-        renderTable(filtered);
+        renderCards(filtered);
     }
 
-    // テーブル描画 (全タブ分の要素を予め作っておく)
-    function renderTable(data) {
-        const tbody = document.getElementById('admin-tbody');
-        document.getElementById('count-display').innerText = `表示: ${data.length}名`;
+    // =========================================================
+    // ★カード描画エンジン (旧 renderTable)
+    // =========================================================
+    function renderCards(data) {
+        const container = document.getElementById('card-list');
+        document.getElementById('count-display').innerText = `表示中: ${data.length}名`;
         
-        let html = '';
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="padding:20px;">該当なし</td></tr>';
+            container.innerHTML = '<div style="text-align:center; color:#999; padding:40px;">該当するデータがありません</div>';
             return;
         }
 
+        let html = '';
+
         data.forEach(p => {
-            // ボタン生成ヘルパー
-            const createButtons = (roundKey, max, currentVal, tabClass) => {
-                let btns = `<div class="${tabClass} score-selector">`; // クラスで表示制御
+            // --- ボタン生成ヘルパー ---
+            const createButtons = (roundKey, max, currentVal) => {
+                let btns = '';
                 for (let i = 0; i <= max; i++) {
                     const isActive = (i === currentVal) ? 'active' : '';
+                    // ボタンクリック時に selectValue を呼ぶ
                     btns += `<button class="score-btn ${isActive}" onclick="selectValue(${p.id}, '${roundKey}', ${i}, this)">${i}</button>`;
                 }
                 // 隠しinputで値を保持
                 btns += `<input type="hidden" id="${roundKey}-${p.id}" value="${currentVal}">`;
-                btns += `</div>`;
                 return btns;
             };
 
-            // 集計タブの表示内容
+            // --- 集計タブのコンテンツ ---
             const totalDisplay = `
-                <div class="content-total">
-                    <span class="result-view">
+                <div class="result-detail">
+                    <div>
                         <span id="disp-r1-${p.id}">${p.round1}</span> + 
                         <span id="disp-r2-${p.id}">${p.round2}</span> + 
-                        <span id="disp-r3-${p.id}">${p.round3}</span> = 
-                    </span>
-                    <span class="result-total" id="disp-total-${p.id}">${p.score}</span>
+                        <span id="disp-r3-${p.id}">${p.round3}</span>
+                    </div>
+                    <div style="margin-top:5px; border-top:1px dashed #ddd; padding-top:5px;">
+                        合計: <span class="result-highlight" id="disp-total-${p.id}">${p.score}</span> 点
+                    </div>
                 </div>
             `;
 
+            // --- カードHTML構築 ---
             html += `
-            <tr>
-                <td>${p.id}</td>
-                <td class="col-name">
-                    <span class="p-name">${p.name}</span>
-                    <span class="p-team">${p.team}</span>
-                </td>
-                <td class="col-input">
-                    ${createButtons('r1', 2, p.round1, 'content-r1')}
-                    
-                    ${createButtons('r2', 4, p.round2, 'content-r2')}
-                    
-                    ${createButtons('r3', 4, p.round3, 'content-r3')}
-                    
+            <div class="card">
+                <div class="card-header">
+                    <div class="participant-info">
+                        <span class="p-id">No.${p.id}</span>
+                        <div>
+                            <span class="p-name">${p.name}</span>
+                            <span class="p-team">${p.team}</span>
+                        </div>
+                    </div>
+                    <div class="current-score-badge">
+                        <span class="badge-label">TOTAL</span>
+                        <span class="badge-val" id="badge-total-${p.id}">${p.score}</span>
+                    </div>
+                </div>
+
+                <div class="content-r1">
+                    ${createButtons('r1', 2, p.round1)}
+                </div>
+
+                <div class="content-r2">
+                    ${createButtons('r2', 4, p.round2)}
+                </div>
+
+                <div class="content-r3">
+                    ${createButtons('r3', 4, p.round3)}
+                </div>
+
+                <div class="content-total">
                     ${totalDisplay}
-                </td>
-                <td class="col-action">
-                    <button class="btn-save" onclick="updateScore(${p.id})">更新</button>
+                </div>
+
+                <div class="card-actions">
                     <span id="msg-${p.id}" class="status-msg"></span>
-                </td>
-            </tr>`;
+                    <button class="btn-save" onclick="updateScore(${p.id})">更新する</button>
+                </div>
+            </div>`;
         });
-        tbody.innerHTML = html;
+
+        container.innerHTML = html;
     }
 
-    // 値選択時の処理
+    // =========================================================
+    // 値選択 & 更新ロジック
+    // =========================================================
+
     function selectValue(id, roundKey, value, btnElement) {
-        // 1. 値のセット
+        // 1. 隠しフィールドに値をセット
         document.getElementById(`${roundKey}-${id}`).value = value;
         
-        // 2. 見た目の更新 (activeクラス付け替え)
+        // 2. 見た目の更新 (兄弟ボタンのactiveを外して、自分につける)
         const parent = btnElement.parentElement;
-        parent.querySelectorAll('.score-btn').forEach(b => b.classList.remove('active'));
+        Array.from(parent.children).forEach(child => {
+            if(child.classList.contains('score-btn')) child.classList.remove('active');
+        });
         btnElement.classList.add('active');
 
-        // 3. UI上の集計表示を仮更新 (保存前でも計算結果が見えるように)
+        // 3. UI上の計算結果を即時更新 (UX向上)
         updateTempDisplay(id);
     }
 
-    // 画面上の計算だけ先行して更新 (UX向上)
+    // 画面上の計算だけ先行して更新
     function updateTempDisplay(id) {
         const r1 = parseInt(document.getElementById(`r1-${id}`).value) || 0;
         const r2 = parseInt(document.getElementById(`r2-${id}`).value) || 0;
         const r3 = parseInt(document.getElementById(`r3-${id}`).value) || 0;
+        const total = r1 + r2 + r3;
         
-        // 集計タブの数字を書き換え
+        // 集計タブ内の表示更新
         const elR1 = document.getElementById(`disp-r1-${id}`);
         const elR2 = document.getElementById(`disp-r2-${id}`);
         const elR3 = document.getElementById(`disp-r3-${id}`);
         const elTotal = document.getElementById(`disp-total-${id}`);
+        
+        // カード右上のバッジ更新
+        const badgeTotal = document.getElementById(`badge-total-${id}`);
 
         if(elR1) elR1.innerText = r1;
         if(elR2) elR2.innerText = r2;
         if(elR3) elR3.innerText = r3;
-        if(elTotal) elTotal.innerText = (r1 + r2 + r3);
+        if(elTotal) elTotal.innerText = total;
+        if(badgeTotal) badgeTotal.innerText = total;
     }
 
-    // 保存処理 (どのタブにいても、その人の全データを保存する)
+    // 保存処理 (エラーログ対応)
     async function updateScore(id) {
-        const r1 = parseInt(document.getElementById(`r1-${id}`).value) || 0;
-        const r2 = parseInt(document.getElementById(`r2-${id}`).value) || 0;
-        const r3 = parseInt(document.getElementById(`r3-${id}`).value) || 0;
-        const newScore = r1 + r2 + r3;
-        
         const msgEl = document.getElementById(`msg-${id}`);
-        msgEl.innerText = "送信中"; // 短めに
+        
+        try {
+            msgEl.innerText = "送信中...";
+            msgEl.style.color = "#888";
 
-        const { error } = await sbClient
-            .from('participants')
-            .update({ round1: r1, round2: r2, round3: r3, score: newScore })
-            .eq('id', id);
+            const r1 = parseInt(document.getElementById(`r1-${id}`).value) || 0;
+            const r2 = parseInt(document.getElementById(`r2-${id}`).value) || 0;
+            const r3 = parseInt(document.getElementById(`r3-${id}`).value) || 0;
+            const newScore = r1 + r2 + r3;
 
-        if (error) {
-            msgEl.innerText = "エラー";
-            msgEl.style.color = "red";
-        } else {
-            msgEl.innerText = "完了";
-            msgEl.style.color = "green";
-            
-            // メモリ内のデータも更新 (検索フィルタ等に即反映させるため)
+            const { error } = await sbClient
+                .from('participants')
+                .update({ round1: r1, round2: r2, round3: r3, score: newScore })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            // 成功時
+            msgEl.innerText = "保存完了!";
+            msgEl.style.color = "#27ae60";
+
+            // ローカルデータの更新 (検索フィルタなどへの反映)
             const target = allParticipants.find(p => p.id === id);
             if(target) {
                 target.round1 = r1;
@@ -346,11 +512,18 @@
                 target.score = newScore;
             }
 
-            // 少し経ったら消す
-            setTimeout(() => { msgEl.innerText = ""; }, 1500);
+            // メッセージを数秒後に消す
+            setTimeout(() => { msgEl.innerText = ""; }, 2000);
+
+        } catch (error) {
+            console.error("Update Error:", error);
+            msgEl.innerText = "エラー!";
+            msgEl.style.color = "red";
+            alert(`保存に失敗しました。\n${error.message}`);
         }
     }
 
+    // セッション維持確認
     if (sbClient) {
         sbClient.auth.getSession().then(({ data: { session } }) => {
             if (session) {
@@ -362,4 +535,3 @@
 </script>
 </body>
 </html>
-
