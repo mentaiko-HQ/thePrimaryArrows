@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>弓道大会 リアルタイム速報</title>
     <link rel="icon" href="data:,">
+    <script src="config.js"></script> 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
@@ -74,8 +75,8 @@
     // =========================================================
     // 設定エリア
     // =========================================================
-    const SUPABASE_URL = 'https://aetenreumweohzjqqcpf.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable__0UiwcqGL8b6OwX828Lh0A_eteYgUoi';
+    const SUPABASE_URL = APP_CONFIG.URL;
+    const SUPABASE_ANON_KEY = APP_CONFIG.KEY;
 
     let sbClient;
     const errorArea = document.getElementById('error-area');
@@ -156,3 +157,4 @@
 </script>
 </body>
 </html>
+
