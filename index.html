@@ -1,187 +1,138 @@
 <!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>弓道大会 リアルタイム速報</title>
+    <link rel="icon" href="data:,">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-      :root {
-        --primary: #2c3e50;
-        --accent: #e74c3c;
-        --bg: #f8f9fa;
-        --card-bg: #ffffff;
-      }
-      body {
-        font-family: sans-serif;
-        background: var(--bg);
-        margin: 0;
-        padding: 20px;
-        color: #333;
-      }
-      .container {
-        max-width: 800px;
-        margin: 0 auto;
-      }
-
-      header {
-        text-align: center;
-        margin-bottom: 2rem;
-      }
-      h1 {
-        margin: 0;
-        color: var(--primary);
-        font-size: 1.5rem;
-      }
-      .live-badge {
-        background: var(--accent);
-        color: white;
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-size: 0.7rem;
-        vertical-align: middle;
-        animation: blink 2s infinite;
-      }
-      @keyframes blink {
-        0% {
-          opacity: 1;
+        :root {
+            --primary: #2c3e50;
+            --accent: #e74c3c;
+            --bg: #f8f9fa;
+            --card-bg: #ffffff;
         }
-        50% {
-          opacity: 0.5;
+        body { font-family: "Helvetica Neue", Arial, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; }
+        
+        header { text-align: center; margin-bottom: 2rem; }
+        h1 { margin: 0; color: var(--primary); font-size: 1.5rem; }
+        .live-badge { 
+            background: var(--accent); color: white; padding: 2px 8px; 
+            border-radius: 4px; font-size: 0.7rem; vertical-align: middle; 
+            animation: blink 2s infinite;
         }
-        100% {
-          opacity: 1;
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        /* カードデザイン (スマホ優先) */
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 5px solid transparent;
+            transition: all 0.3s ease; /* アニメーション */
         }
-      }
+        .card[data-rank="1"] { border-left-color: #f1c40f; background: #fffdf0; } /* 1位 */
+        .card[data-rank="2"] { border-left-color: #95a5a6; } /* 2位 */
+        .card[data-rank="3"] { border-left-color: #d35400; } /* 3位 */
 
-      /* カードデザイン (スマホ優先) */
-      .card {
-        background: var(--card-bg);
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-left: 5px solid transparent;
-        transition: transform 0.2s;
-      }
-      .card[data-rank='1'] {
-        border-left-color: #f1c40f;
-        background: #fffdf0;
-      } /* 1位は金 */
-      .card[data-rank='2'] {
-        border-left-color: #95a5a6;
-      } /* 2位は銀 */
-      .card[data-rank='3'] {
-        border-left-color: #d35400;
-      } /* 3位は銅 */
+        .player-info { flex: 1; }
+        .rank { font-size: 0.9rem; color: #888; margin-right: 8px; font-weight: bold; }
+        .name { font-size: 1.1rem; font-weight: bold; display: block; }
+        .team { font-size: 0.8rem; color: #666; }
+        
+        .score-area { text-align: right; }
+        .total-score { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
+        .mato-detail { font-size: 0.8rem; color: #888; font-family: monospace; letter-spacing: 2px; }
+        
+        .atari { color: var(--accent); }
+        .hazure { color: #ccc; }
 
-      .player-info {
-        flex: 1;
-      }
-      .rank {
-        font-size: 0.9rem;
-        color: #888;
-        margin-right: 8px;
-        font-weight: bold;
-      }
-      .name {
-        font-size: 1.1rem;
-        font-weight: bold;
-        display: block;
-      }
-      .team {
-        font-size: 0.8rem;
-        color: #666;
-      }
-
-      .score-area {
-        text-align: right;
-      }
-      .total-score {
-        font-size: 1.5rem;
-        font-weight: bold;
-        color: var(--primary);
-      }
-      .mato-detail {
-        font-size: 0.8rem;
-        color: #888;
-        font-family: monospace;
-        letter-spacing: 2px;
-      }
-
-      .atari {
-        color: var(--accent);
-      }
-      .hazure {
-        color: #ccc;
-      }
-
-      /* 読み込み中 */
-      .loading {
-        text-align: center;
-        padding: 20px;
-        color: #666;
-      }
+        /* 読み込み中 */
+        .loading { text-align: center; padding: 20px; color: #666; }
+        .error-msg { color: red; text-align: center; background: #ffebee; padding: 10px; border-radius: 8px; display: none; }
     </style>
-  </head>
-  <body>
-    <div class="container">
-      <header>
+</head>
+<body>
+
+<div class="container">
+    <header>
         <h1>🏹 大会速報 <span class="live-badge">LIVE</span></h1>
-        <p style="font-size: 0.8rem; color: #666">
-          リアルタイムで自動更新されます
-        </p>
-      </header>
+        <p style="font-size:0.8rem; color:#666;">リアルタイムで自動更新されます</p>
+    </header>
 
-      <div id="ranking-list">
+    <div id="error-area" class="error-msg"></div>
+
+    <div id="ranking-list">
         <div class="loading">データを読み込んでいます...</div>
-      </div>
     </div>
+</div>
 
-    <script>
-      // ▼▼▼ ここを書き換えてください ▼▼▼
-      const SUPABASE_URL = 'https://aetenreumweohzjqqcpf.supabase.co';
-      const SUPABASE_ANON_KEY =
-        'sb_publishable__0UiwcqGL8b6OwX828Lh0A_eteYgUoi';
-      // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+<script>
+    // =========================================================
+    // 設定エリア (ここだけ書き換えてください)
+    // =========================================================
+    const SUPABASE_URL = 'https://aetenreumweohzjqqcpf.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable__0UiwcqGL8b6OwX828Lh0A_eteYgUoi';
 
-      const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // =========================================================
+    // 初期化 (変数名を sbClient に変更して衝突回避)
+    // =========================================================
+    let sbClient;
+    const errorArea = document.getElementById('error-area');
 
-      // データ取得＆表示
-      async function fetchAndRender() {
+    try {
+        sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log("Supabase初期化成功");
+    } catch (e) {
+        console.error("初期化エラー:", e);
+        showError("システムエラー: 設定を確認してください");
+    }
+
+    // =========================================================
+    // メイン処理
+    // =========================================================
+
+    // データ取得＆表示
+    async function fetchAndRender() {
+        if (!sbClient) return;
+
         try {
-          const { data, error } = await supabase
-            .from('participants')
-            .select('*')
-            .order('score', { ascending: false }) // スコア順
-            .order('id', { ascending: true }); // 同点ならID順
+            const { data, error } = await sbClient
+                .from('participants')
+                .select('*')
+                .order('score', { ascending: false }) // スコア高い順
+                .order('id', { ascending: true });    // 同点なら登録順
 
-          if (error) throw error;
-          renderList(data);
+            if (error) throw error;
+            renderList(data);
         } catch (e) {
-          console.error('Error:', e);
+            console.error('Data Fetch Error:', e);
+            showError("データの取得に失敗しました");
         }
-      }
+    }
 
-      // リスト描画
-      function renderList(data) {
+    // リスト描画
+    function renderList(data) {
         const container = document.getElementById('ranking-list');
-        if (data.length === 0) {
-          container.innerHTML =
-            '<p style="text-align:center">データがありません</p>';
-          return;
+        if (!data || data.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:#888;">現在、参加者データがありません</p>';
+            return;
         }
 
         let html = '';
         data.forEach((p, index) => {
-          const rank = index + 1;
-          const mato1 = formatMato(p.round1 || '');
-          const mato2 = formatMato(p.round2 || '');
-
-          html += `
+            const rank = index + 1;
+            const mato1 = formatMato(p.round1 || '');
+            const mato2 = formatMato(p.round2 || '');
+            
+            html += `
             <div class="card" data-rank="${rank}">
                 <div class="player-info">
                     <span class="rank">${rank}位</span>
@@ -195,31 +146,47 @@
             </div>`;
         });
         container.innerHTML = html;
-      }
+    }
 
-      // 的中マーク装飾
-      function formatMato(str) {
-        // 全角・半角対応
-        return str
-          .replace(/[○oO0]/g, '<span class="atari">●</span>')
-          .replace(/[×xX]/g, '<span class="hazure">×</span>');
-      }
+    // 的中マーク装飾
+    function formatMato(str) {
+        return str.replace(/[○oO0]/g, '<span class="atari">●</span>')
+                  .replace(/[×xX]/g, '<span class="hazure">×</span>');
+    }
 
-      // 初回実行
-      fetchAndRender();
+    // エラー表示用ヘルパー
+    function showError(msg) {
+        errorArea.innerText = msg;
+        errorArea.style.display = 'block';
+        document.querySelector('.loading').style.display = 'none';
+    }
 
-      // ★リアルタイム更新設定（ここがSupabaseの魔法です）
-      supabase
-        .channel('custom-all-channel')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'participants' },
-          (payload) => {
-            console.log('Change received!', payload);
-            fetchAndRender(); // 変更があったら再取得して再描画
-          }
-        )
-        .subscribe();
-    </script>
-  </body>
+    // =========================================================
+    // 実行 & リアルタイム監視
+    // =========================================================
+    
+    // 1. まず一回データを取る
+    fetchAndRender();
+
+    // 2. リアルタイム更新をセットアップ
+    if (sbClient) {
+        console.log("リアルタイム監視を開始します...");
+        sbClient.channel('custom-all-channel')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'participants' },
+                (payload) => {
+                    console.log('変更を検知しました!', payload);
+                    fetchAndRender(); // 変更があったら画面を書き直す
+                }
+            )
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log('接続完了: リアルタイム更新の準備OK');
+                }
+            });
+    }
+
+</script>
+</body>
 </html>
